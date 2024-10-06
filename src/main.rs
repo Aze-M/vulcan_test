@@ -117,8 +117,9 @@ unsafe fn pick_physical_device(_instance: &Instance, _data: &mut AppData) -> Res
 unsafe fn check_physical_device(_instance: &Instance, _data: &AppData, _p_device: vk::PhysicalDevice) -> Result<()> {
 
     let properties = _instance.get_physical_device_properties(_p_device);
-    if properties.device_type != vk::PhysicalDeviceType::DISCRETE_GPU {
-        return Err(anyhow!(SuitabilityError("Only discrete GPUs are supported.")));
+    if properties.device_type != vk::PhysicalDeviceType::DISCRETE_GPU 
+    && properties.device_type != vk::PhysicalDeviceType::INTEGRATED_GPU {
+        return Err(anyhow!(SuitabilityError("Only discrete and integrated GPUs are supported.")));
     }
 
     let features = _instance.get_physical_device_features(_p_device);
