@@ -11,9 +11,9 @@ use thiserror::Error;
 use log::*;
 
 use winit::dpi::LogicalSize;
-use winit::event::{self, Event, WindowEvent};
-use winit::event_loop::{self, EventLoop};
-use winit::window::{Window, WindowBuilder};
+use winit::event::{Event, WindowEvent};
+use winit::event_loop::{ActiveEventLoop, EventLoop};
+use winit::window::{Window};
 
 use vulkanalia::loader::{LibloadingLoader, LIBRARY};
 use vulkanalia::prelude::v1_0::*;
@@ -24,6 +24,7 @@ use vulkanalia::window as vk_window;
 use std::collections::HashSet;
 use std::ffi::CStr;
 use std::os::raw::c_void;
+use std::time::Duration;
 
 const PORTABILITY_MACOS_VERSION: Version = Version::new(1,3,216);
 const VALIDATION_ENABLED: bool = cfg!(debug_assertions);
@@ -267,36 +268,18 @@ fn main() -> Result<()> {
 
     //Window generation
     let event_loop = EventLoop::new()?;
-    let main_window = WindowBuilder::new()
+    let window_attr = Window::default_attributes()
     .with_title("Vulkan Testin (Rust)")
-    .with_inner_size(LogicalSize::new(1280,720))
-    .build(&event_loop)?;
-
+    .with_inner_size(LogicalSize::new(1280,720));
+    
     //App
-    let mut main_app = unsafe { App::create(&main_window)? };
+    //let mut main_app = unsafe { App::create(&main_window)? };
 
-    event_loop.run(move |event, elwt| {
-        match event {
-            //request a redraw when al levents where processed.
-            Event::AboutToWait => main_window.request_redraw(),
-            Event::WindowEvent { event, .. } => match event {
-
-                //Render a frame if the App isn't beign destroyed
-                WindowEvent::RedrawRequested if !elwt.exiting() => unsafe {
-                    main_app.render(&main_window)
-                }.unwrap(),
-
-                WindowEvent::CloseRequested => {
-                    elwt.exit();
-                    unsafe { main_app.destroy(); }
-                }
-                _ => {}
-
-            }
-            _ => {}
-        }
-    })?;
-
+    loop {
+        let timeout = Some(Duration::from_millis(16));
+        //event_loop.pump_app_events(timeout, app)
+    };
+        
     return Ok(());
 
 }
