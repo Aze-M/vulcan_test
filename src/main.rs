@@ -13,7 +13,7 @@ use log::*;
 use vk::QueueFamilyProperties;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::{Event, KeyEvent, WindowEvent};
+use winit::event::WindowEvent;
 use winit::keyboard::*;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::{self, Window};
@@ -27,7 +27,6 @@ use vulkanalia::window as vk_window;
 use std::collections::HashSet;
 use std::ffi::CStr;
 use std::os::raw::c_void;
-use std::time::Duration;
 
 const PORTABILITY_MACOS_VERSION: Version = Version::new(1,3,216);
 const VALIDATION_ENABLED: bool = cfg!(debug_assertions);
