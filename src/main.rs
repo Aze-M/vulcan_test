@@ -10,10 +10,12 @@ use thiserror::Error;
 
 use log::*;
 
+use vk::QueueFamilyProperties;
+use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
-use winit::window::{Window};
+use winit::window::{self, Window};
 
 use vulkanalia::loader::{LibloadingLoader, LIBRARY};
 use vulkanalia::prelude::v1_0::*;
@@ -30,18 +32,32 @@ const PORTABILITY_MACOS_VERSION: Version = Version::new(1,3,216);
 const VALIDATION_ENABLED: bool = cfg!(debug_assertions);
 const VALIDATION_LAYER: vk::ExtensionName = vk::ExtensionName::from_bytes(b"VK_LAYER_KHRONOS_validation");
 
-#[derive(Clone, Debug)]
+#[derive(Default ,Debug)]
 struct App {
+    window: Option<Window>,
+    app: Option<VulkanApp>
+}
+
+#[derive(Clone, Debug)]
+struct VulkanApp {
     entry: Entry,
     instance: Instance,
     data: AppData,
-    device: Device
+    device: Device,
 }
 
-impl App {
-    unsafe fn create(window: &Window) -> Result<Self> {
-        let loader = LibloadingLoader::new(LIBRARY)?;
-        let entry = Entry::new(loader).map_err(|b| anyhow!("{}", b))?;
+impl VulkanApp {
+    fn create(window: &Window) -> Result<Self> {
+
+        let loader: LibloadingLoader;
+        unsafe {
+            loader = LibloadingLoader::new(LIBRARY)?;
+        }
+
+        let entry: Entry;
+        unsafe {
+            entry = Entry::new(loader).map_err(|b| anyhow!("{}", b))?;
+        }
         let mut data = AppData::default();
         let instance = create_instance(window, &entry, &mut data)?;
         let device = create_logical_decice(&entry, &instance, &mut data)?;
@@ -63,6 +79,31 @@ impl App {
     }
 }
 
+impl ApplicationHandler for App {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        let window_props = Window::default_attributes()
+        .with_title("Vulkan Testin (Rust)")
+        .with_inner_size(LogicalSize::new(1280,720));
+
+        self.window = Some(event_loop.create_window(window_props).unwrap());
+        self.app = Some(VulkanApp::create(self.window.as_ref().unwrap()).unwrap());
+    }
+
+    fn window_event(
+            &mut self,
+            event_loop: &ActiveEventLoop,
+            window_id: window::WindowId,
+            event: WindowEvent,
+        ) {
+        
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+
+    }
+
+}
+
 #[derive(Clone, Debug, Default)]
 struct AppData {
     messenger: vk::DebugUtilsMessengerEXT,
@@ -79,14 +120,19 @@ struct QueueFamilyIndices {
 }
 
 impl QueueFamilyIndices {
-    unsafe fn get(_instance: &Instance, _data: &AppData, _p_device: vk::PhysicalDevice) -> Result<Self> {
+    fn get(_instance: &Instance, _data: &AppData, _p_device: vk::PhysicalDevice) -> Result<Self> {
+        let properties: Vec<QueueFamilyProperties>;
+        let graphics: Option<u32>;
 
-        let properties = _instance.get_physical_device_queue_family_properties(_p_device);
+        unsafe {
+            properties = _instance.get_physical_device_queue_family_properties(_p_device);
 
-        let graphics = properties
-        .iter()
-        .position(|p| p.queue_flags.contains(vk::QueueFlags::GRAPHICS))
-        .map(|i| i as u32);
+            graphics = properties
+            .iter()
+            .position(|p| p.queue_flags.contains(vk::QueueFlags::GRAPHICS))
+            .map(|i| i as u32);
+
+        }
 
         if let Some(graphics) = graphics {
             return Ok(Self { graphics});
@@ -134,7 +180,7 @@ unsafe fn check_physical_device(_instance: &Instance, _data: &AppData, _p_device
 
 }
 
-unsafe fn create_logical_decice(_entry: &Entry, _instance: &Instance, _data: &mut AppData) -> Result<Device> {
+fn create_logical_decice(_entry: &Entry, _instance: &Instance, _data: &mut AppData) -> Result<Device> {
 
     let indices = QueueFamilyIndices::get(_instance, _data, _data.physical_device)?;
 
@@ -164,8 +210,14 @@ unsafe fn create_logical_decice(_entry: &Entry, _instance: &Instance, _data: &mu
     .enabled_extension_names(&extensions)
     .enabled_features(&features);
 
-    let device = _instance.create_device(_data.physical_device, &info, None)?;
-    _data.graphics_queue = device.get_device_queue(indices.graphics, 0);
+    let device: Device;
+    unsafe {
+        device = _instance.create_device(_data.physical_device, &info, None)?;
+    }
+
+    unsafe {
+        _data.graphics_queue = device.get_device_queue(indices.graphics, 0);
+    }
 
     return Ok(device);
 
@@ -193,7 +245,7 @@ extern "system" fn debug_callback(severity: vk::DebugUtilsMessageSeverityFlagsEX
 }
 
 
-unsafe fn create_instance(_window: &Window, _entry: &Entry, _data: &mut AppData) -> Result<Instance> {
+fn create_instance(_window: &Window, _entry: &Entry, _data: &mut AppData) -> Result<Instance> {
 
     let application_info = vk::ApplicationInfo::builder()
     .application_name(b"Vulcan Tutorial\0")
@@ -202,11 +254,14 @@ unsafe fn create_instance(_window: &Window, _entry: &Entry, _data: &mut AppData)
     .engine_version(vk::make_version(1, 0, 0))
     .api_version(vk::make_version(1, 0, 0));
 
-    let available_layers = _entry
-    .enumerate_instance_layer_properties()?
-    .iter()
-    .map(|l| l.layer_name)
-    .collect::<HashSet<_>>();
+    let available_layers: HashSet<vk::StringArray<256>>;
+    unsafe {
+         available_layers = _entry
+        .enumerate_instance_layer_properties()?
+        .iter()
+        .map(|l| l.layer_name)
+        .collect::<HashSet<_>>();
+    }
 
     if VALIDATION_ENABLED && !available_layers.contains(&VALIDATION_LAYER) {
         return Err(anyhow!("Validation layer requested but not supported!"))
@@ -256,7 +311,10 @@ unsafe fn create_instance(_window: &Window, _entry: &Entry, _data: &mut AppData)
         info = info.push_next(&mut debug_info);
     }
 
-    let instance = _entry.create_instance(&info, None)?;
+    let instance: Instance;
+    unsafe {
+        instance = _entry.create_instance(&info, None)?;
+    }
 
     Ok(instance)
 
@@ -268,18 +326,11 @@ fn main() -> Result<()> {
 
     //Window generation
     let event_loop = EventLoop::new()?;
-    let window_attr = Window::default_attributes()
-    .with_title("Vulkan Testin (Rust)")
-    .with_inner_size(LogicalSize::new(1280,720));
+    let mut main_app = App::default();
     
     //App
-    //let mut main_app = unsafe { App::create(&main_window)? };
+    event_loop.run_app(&mut main_app)?;
 
-    loop {
-        let timeout = Some(Duration::from_millis(16));
-        //event_loop.pump_app_events(timeout, app)
-    };
-        
     return Ok(());
 
 }
