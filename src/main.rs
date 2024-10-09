@@ -13,7 +13,8 @@ use log::*;
 use vk::QueueFamilyProperties;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::{Event, WindowEvent};
+use winit::event::{Event, KeyEvent, WindowEvent};
+use winit::keyboard::*;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::{self, Window};
 
@@ -95,11 +96,35 @@ impl ApplicationHandler for App {
             window_id: window::WindowId,
             event: WindowEvent,
         ) {
-        
+        match event {
+            WindowEvent::KeyboardInput { device_id, event, is_synthetic } => {
+                match event.logical_key {
+                    Key::Named(NamedKey::Escape) => {
+                        event_loop.exit();
+                    }
+                    _ => ()
+                }
+            }
+
+            WindowEvent::CloseRequested => {
+                event_loop.exit();
+            }
+
+            _ => ()
+        }
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        // request redraw when other events have passed
+        self.window.as_mut().unwrap().request_redraw();
+    }
 
+    fn exiting(&mut self, event_loop: &ActiveEventLoop) {
+        if self.app.is_some() {
+            unsafe {
+                self.app.as_mut().unwrap().destroy();
+            }
+        }
     }
 
 }
